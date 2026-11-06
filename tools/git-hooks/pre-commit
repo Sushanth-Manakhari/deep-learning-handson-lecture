@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# =============================================================================
+# pre-commit hook — a second safety net on top of .gitignore.
+#
+# Blocks a commit if any STAGED file:
+#   1. is a slide deck (.pptx/.ppt/.pptm/.potx/.key) or lives in slides/
+#      -> the lecture deck and its speaker notes are LOCAL ONLY;
+#   2. is larger than 20 MB (datasets/checkpoints belong in a Release, not git);
+#   3. contains something that looks like an access token
+#      (Hugging Face "hf_...", W&B 40-hex key assignment, AWS key id, private key).
+#
+# Install with:  bash scripts/install_git_hooks.sh
+# Bypass (only if you are 100% sure):  git commit --no-verify
+# =============================================================================
+set -euo pipefail
+
+fail=0
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+
+# ---- 1. Slides must never leave the laptop ---------------------------------
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  case "$f" in
+    slides/*|*.pptx|*.PPTX|*.ppt|*.pptm|*.potx|*.key)
+      echo "BLOCKED: '$f' is a slide file. Slides stay local and are never pushed." >&2
+      fail=1 ;;
+  esac
+done <<< "$staged"
+
+# ---- 2. No large binaries in git history ------------------------------------
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  [ -f "$f" ] || continue
+  size=$(wc -c < "$f" | tr -d ' ')
+  if [ "$size" -gt 20971520 ]; then
+    echo "BLOCKED: '$f' is $((size/1048576)) MB (>20 MB). Publish it as a GitHub Release asset instead." >&2
+    fail=1
+  fi
+done <<< "$staged"
+
+# ---- 3. Secret scanning on the staged diff ----------------------------------
+if git diff --cached -U0 | grep -E '^\+' | grep -E -q \
+   'hf_[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|WANDB_API_KEY *= *["'"'"']?[0-9a-f]{40}'; then
+  echo "BLOCKED: the staged changes look like they contain a secret/token." >&2
+  echo "         Use Colab Secrets / environment variables instead of hard-coding keys." >&2
+  fail=1
+fi
+
+if [ "$fail" -ne 0 ]; then
+  echo "Commit aborted by tools/git-hooks/pre-commit." >&2
+  exit 1
+fi
+exit 0

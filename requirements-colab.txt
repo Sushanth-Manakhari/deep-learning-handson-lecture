@@ -1,0 +1,5 @@
+# Only what Colab/Kaggle may be missing. torch, torchvision, transformers,
+# scikit-learn, matplotlib, pandas, pyarrow are pre-installed there.
+gradio>=4.44
+qrcode>=7.4
+safetensors>=0.4

@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dlhandson"
+version = "1.0.0"
+description = "Hands-on deep learning guest lecture kit: transfer learning for vision and NLP, debugging and MLOps basics."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Sushanth Manakhari" }]
+requires-python = ">=3.10"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

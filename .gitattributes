@@ -1,0 +1,10 @@
+# Normalise line endings so Mac, Linux and Windows students get working files.
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+# Binary assets: never try to diff/merge them as text.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.zip binary
+*.pdf binary

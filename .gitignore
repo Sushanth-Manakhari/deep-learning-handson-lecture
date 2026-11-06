@@ -1,0 +1,67 @@
+# =============================================================================
+# .gitignore for deep-learning-handson-lecture
+# Rule of thumb: commit SOURCE (code, small curated data, docs);
+# never commit GENERATED artifacts (venvs, checkpoints, downloads) or SECRETS.
+# =============================================================================
+
+# ---- Python & virtual environments -----------------------------------------
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+
+# ---- Jupyter ----------------------------------------------------------------
+.ipynb_checkpoints/
+
+# ---- Large / generated data & model artifacts --------------------------------
+# The Beans image pack is downloaded or built at runtime (GitHub Release).
+data/beans/
+data/cache/
+.cache/
+runs/
+checkpoints/
+outputs/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+wandb/
+
+# ---- Raw phone photos may contain GPS metadata: never commit them --------
+data/stress_test/_incoming/
+data/stress_test/my_photos/
+
+# ---- Local verification output (setup_mac.sh, Colab dry-run downloads) -----
+reports/
+
+# ---- LECTURE SLIDES: LOCAL ONLY — NEVER PUSHED TO GITHUB --------------------
+# The deck (and its speaker notes) stays on the presenter's laptop.
+# A pre-commit hook (tools/git-hooks/pre-commit) blocks these as a 2nd guard.
+slides/
+*.pptx
+*.pptm
+*.ppt
+*.potx
+*.key
+~$*
+
+# ---- Secrets: never commit tokens or keys ------------------------------------
+.env
+*.env
+secrets/
+kaggle.json
+.netrc
+
+# ---- OS / editor noise ----------------------------------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

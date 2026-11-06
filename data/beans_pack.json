@@ -1,0 +1,14 @@
+{
+  "version": "data-v1",
+  "url": "https://github.com/Sushanth-Manakhari/deep-learning-handson-lecture/releases/download/data-v1/beans_224.zip",
+  "sha256": "494ec845cb37e94ec51e05fe57eed280cd93f5211b086c82b6d944f172246ae2",
+  "bytes": 26076234,
+  "counts": {
+    "train": 1034,
+    "validation": 133,
+    "test": 128
+  },
+  "source": "https://huggingface.co/datasets/AI-Lab-Makerere/beans",
+  "licence": "MIT",
+  "note": "Images resized to 224x224 JPEG (quality 90) by scripts/build_beans_pack.py"
+}

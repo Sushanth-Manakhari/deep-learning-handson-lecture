@@ -1,0 +1,32 @@
+# Local (Mac / Windows / Linux) dependencies — Python 3.10 or newer (tested on 3.15 with Homebrew) — install INSIDE the project's .venv:
+#   python -m venv .venv  ->  activate  ->  pip install -r requirements.txt
+# Colab and Kaggle already ship torch/torchvision/transformers; the notebooks
+# install only what is missing there (see requirements-colab.txt).
+#
+# NVIDIA GPU on Windows/Linux? Install the CUDA build of PyTorch FIRST using the
+# selector at https://pytorch.org/get-started/locally/ , then run this file.
+
+torch>=2.4
+torchvision>=0.19
+transformers>=4.44
+huggingface_hub>=0.24
+safetensors>=0.4
+numpy>=1.26
+pandas>=2.1
+pyarrow>=15
+scikit-learn>=1.4
+matplotlib>=3.8
+pillow>=10.3
+tensorboard>=2.16
+gradio>=4.44
+qrcode>=7.4
+jupyterlab>=4.2
+ipykernel>=6.29
+ipywidgets>=8.1
+pytest>=8.0
+certifi>=2024.2
+jupytext>=1.16
+nbformat>=5.10
+nbclient>=0.10
+# Optional: experiment tracking with a free account
+# wandb>=0.17
