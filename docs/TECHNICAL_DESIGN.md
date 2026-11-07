@@ -12,7 +12,7 @@
 
 ## 1. Purpose and scope
 
-Deliver a **2-hour, hands-on, industry-oriented** deep-learning session for 45–60 graduate students
+Deliver a **90-minute (80 minutes hands-on + 10 minutes Q&A), industry-oriented** deep-learning session for 45–60 graduate students
 (CS / Data Science / AI-ML) with a mix of NLP and computer-vision interests, using only **free compute**
 (Google Colab, Kaggle, or their own laptops). The kit must teach by running code — "show the math in
 action" — and must never leave a student stranded.
@@ -20,7 +20,7 @@ action" — and must never leave a student stranded.
 **In scope:** two end-to-end transfer-learning projects (images, text), PyTorch fundamentals, debugging,
 MLOps basics, a phone-accessible demo app, documentation, diagrams and a slide deck.
 **Out of scope:** paid cloud (AWS/Azure/GCP), training from scratch at scale, production deployment,
-LLM fine-tuning (covered conceptually in "Horizons").
+LLM fine-tuning (covered conceptually in §6, "Where this leads next").
 
 ## 2. Requirements
 
@@ -40,7 +40,7 @@ LLM fine-tuning (covered conceptually in "Horizons").
 | ID | Requirement | Design response |
 |---|---|---|
 | NFR-1 | Zero install for students | Colab notebook clones the repo and installs only missing extras (`gradio`, `qrcode`, `safetensors`) |
-| NFR-2 | Whole lab fits the 2-hour slot | T4 dry run: a full walk-through at reading pace took 78 min of the 120; compute per epoch 6–17 s |
+| NFR-2 | Whole lab fits the 80-minute hands-on slot (4:00–5:20, then 10 min Q&A) | Section budgets 5 + 5 + 12 + 28 + 13 + 12 + 5 min; four ⏩ cells (3.9, 3.14, 5.4, 5.6) skipped in class but still run with *Run all*; run-sheet "if late" column frees ~6 min more; compute per epoch 6–17 s on a T4 |
 | NFR-3 | "Don't Panic": runs top to bottom; recoverable from any point | Idempotent 🛟 catch-up cells, cached checkpoints, automated smoke execution of every notebook |
 | NFR-4 | No 10-minute dataset waits on university Wi-Fi | Pre-resized 26 MB pack on GitHub Releases (SHA-256 verified), text data committed (1 MB) |
 | NFR-5 | Works on any hardware | Device auto-selection CUDA → MPS → CPU; hardware profiles shrink work on CPU |
@@ -271,12 +271,18 @@ The dataset pack is published once as Release `data-v1`. Commits use the GitHub 
 
 | Time | Notebook section | Deep-learning concepts |
 |---|---|---|
-| 4:00 | 0–1 | GPUs, FLOPs, the modern stack, feature engineering vs feature learning |
-| 4:15 | 2 | tensors, broadcasting, gradient descent & stability ($\eta<2/\lambda_{max}$), autograd, `nn.Module`, cross-entropy, training loop |
-| 4:35 | 3 | transfer learning, residual connections, normalisation, augmentation, optimisers, batch size vs memory, fine-tuning, metrics, OOD, selective prediction, ViT |
-| 5:15 | 4 | tokenisation, attention, freeze vs fine-tune, warm-up, clipping, macro-F1 |
-| 5:35 | 5 | debugging checklist, exploding/vanishing gradients, tracking, safetensors, model cards, tests, serving |
-| 5:55 | 6 | LLMs, LoRA, RAG, GANs, diffusion |
+| 4:00 | 0 · Setup (5 min) | — (setup cells download data and models while we talk) |
+| 4:05 | 1 · Why deep learning (5 min) | feature engineering vs feature learning, layers as weighted sums + bends, GPUs and FLOPs |
+| 4:10 | 2 · How a model learns (12 min) | gradient descent by hand, autograd and the chain rule, step-size stability ($\eta<2/\lambda_{max}$), softmax and cross-entropy, the training loop |
+| 4:22 | 3 · Project 1: leaf disease (28 min) | baseline, transfer learning, normalisation, augmentation, hyperparameters (challenge), fine-tuning, GPU memory, precision/recall/F1, out-of-distribution inputs, selective prediction |
+| 4:50 | 4 · Project 2: customer messages (13 min) | tokenisation, attention, freeze vs fine-tune, warm-up, clipping, macro-F1, selective prediction |
+| 5:03 | 5 · When training goes wrong, and how to share a model (12 min) | overfit one batch, optimizer bug, exploding/vanishing gradients, serving (phone demo), safetensors, model cards |
+| 5:15 | 6 · Wrap-up (5 min) | LLMs, LoRA, RAG |
+| 5:20 | Q&A (10 min) | — |
+
+Not taught in class, to fit 80 minutes: the ⏩ cells, which still run with *Run all* (batch size vs GPU memory 3.9,
+Vision Transformer 3.14, experiment tracking 5.4, tests and CLI 5.6), and topics kept for questions (tensors and
+broadcasting, residual connections, label smoothing, entropy, GANs and diffusion).
 
 ## 16. Risks and mitigations
 
@@ -286,7 +292,7 @@ The dataset pack is published once as Release `data-v1`. Commits use the GitHub 
 | Notebook opened on a branch without code | Low | Medium | Setup cell verifies the clone's branch and contents, re-clones, or stops with the fix |
 | Campus Wi-Fi saturation | Medium | High | 26 MB pack, pre-run instructor notebook, executed copy on GitHub |
 | Library API changes before Nov 19 | Low | Medium | Colab dry run ~1 week before; minimum versions; smoke tests |
-| Overrunning time | Medium | Medium | Run-sheet "skip" column; optional ⏩ cells |
+| Overrunning time (80-minute slot) | Medium | Medium | Run-sheet "if late" column; ⏩ cells skipped in class; hidden backup slides; hard stop 5:30 |
 | Students without laptops | Low | Low | Phone demo via QR; pairing |
 
 ## 17. Future work

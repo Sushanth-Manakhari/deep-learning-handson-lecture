@@ -70,17 +70,21 @@ Then open the folder in VS Code (Python + Jupyter extensions), pick the `.venv` 
 | Apple Silicon GPU | `mps` | ResNet-50 @ 224 px | full Banking77 (eager attention) |
 | CPU only | `cpu` (FAST) | ResNet-18 @ 160 px, 450 images, 3 epochs | 2,000 messages, 1 epoch |
 
-## Lecture agenda (2 h + 30 min Q&A)
+## Lecture agenda (80 min hands-on + 10 min Q&A, 4:00–5:30 PM)
 
 | Time | Section | Notebook |
 |---|---|---|
-| 4:00 | Setup + why deep learning (paradigm shift, GPUs, the stack) | §0–1 |
-| 4:15 | The PyTorch mental model: tensors, gradient descent by hand, autograd, `nn.Module`, the loop | §2 |
-| 4:35 | 🌱 LEAF-101: transfer learning, augmentation, **5-min challenge**, fine-tuning, OOM demo, test, stress test, threshold, ViT | §3 |
-| 5:15 | 💬 SUPPORT-202: tokenisation, attention, frozen vs fine-tuned DistilBERT, confused intents, routing | §4 |
-| 5:35 | Real-world debugging & MLOps: overfit one batch, NaN, vanishing gradients, tracking, safetensors, model card, tests, **phone demo** | §5 |
-| 5:55 | Horizons: LLMs, LoRA, RAG, GANs, diffusion | §6 |
-| 6:00 | Q&A | — |
+| 4:00 | Setup: open the notebook, turn on the GPU, run the 3 setup cells | §0 |
+| 4:05 | Why deep learning: computers learn what to look for, and why we need a GPU | §1 |
+| 4:10 | How a model learns: small steps downhill by hand, PyTorch does the calculus, step size, the five-line training loop | §2 |
+| 4:22 | 🌱 Project 1 (LEAF-101): look at the data, the score to beat, reuse ResNet (transfer learning), more photos for free, **3-minute challenge**, fine-tuning, test set, ask a human when unsure | §3 |
+| 4:50 | 💬 Project 2 (SUPPORT-202): word pieces, attention, last layer or whole model, unsure messages go to a person | §4 |
+| 5:03 | When training goes wrong, and how to share a model (MLOps): learn 16 examples by heart, numbers that blow up or fade away, **phone demo**, sharing a model safely | §5 |
+| 5:15 | Wrap-up: what you built, and where this leads (LLMs, LoRA, RAG) | §6 |
+| 5:20 | Q&A (we finish at 5:30) | — |
+
+Cells marked ⏩ (3.9 GPU memory, 3.14 Vision Transformer, 5.4 experiment tracking, 5.6 from notebook to real
+software) are skipped in class to fit the time. They run with **Run all**; try them at home.
 
 ## Results (verified run)
 

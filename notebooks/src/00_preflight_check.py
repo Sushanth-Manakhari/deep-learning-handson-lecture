@@ -7,7 +7,7 @@
 # ---
 
 # %% [markdown]
-# # ✈️ Pre-flight check — run this BEFORE the lecture (≈ 5 minutes)
+# # ✈️ Before class: a 5-minute check that everything works
 # **Deep Learning, Hands-On · The Roux Institute at Northeastern University · Nov 19, 2026**
 #
 # This notebook checks that your environment can run the hands-on lab, so that on the day you can start

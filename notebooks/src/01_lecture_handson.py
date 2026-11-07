@@ -10,6 +10,7 @@
 # # Deep Learning, Hands-On: from tensors to a shipped model
 # **Guest lecture · The Roux Institute at Northeastern University · November 19, 2026**
 # **Dr. Sushanth Manakhari** — host: Dr. Umesh Hodeghatta Rao
+# **4:00–5:30 PM:** 80 minutes hands-on, then 10 minutes of questions. Section headings show each part's minutes.
 #
 # Today you are a new ML engineer with **two tickets** on your sprint board:
 #
@@ -21,13 +22,13 @@
 # You will solve both with **the same recipe**, break things on purpose, debug them like a
 # professional, and finish with a web app you can open **on your phone**.
 #
-# ### How this notebook works (the "Don't Panic" rules)
+# ### How to use this notebook (and what to do if you get lost)
 # | Icon | Meaning |
 # |---|---|
 # | ⚙️ | Setup — run it, don't edit it |
 # | 🛟 | **Catch-up cell.** Lost, restarted, or got an error? Run the 🛟 cell at the top of the section and you are back in sync |
 # | 🎛️ | **Try it** — change the values and re-run; nothing breaks |
-# | ⏩ | Optional — skip if we are short on time |
+# | ⏩ | Optional — skipped in class; try it at home |
 # | 🧮 | The math behind what the code does |
 # | 🏭 | How this is used in industry |
 #
@@ -35,7 +36,7 @@
 # 🛟 cell. On Colab: `Runtime → Change runtime type → T4 GPU` before running anything.
 
 # %% [markdown]
-# ## ⚙️ 0. Setup  *(run now — it downloads data and models while we talk)*
+# ## ⚙️ 0. Setup: get the code, data and models  *(run now — it downloads while we talk)*
 
 # %%
 # ⚙️ SETUP — finds (or downloads) the course code, installs only what is missing.
@@ -132,9 +133,9 @@ print(f"✅ data + pretrained weights ready in {time.time() - t0:.0f}s")
 
 # %% [markdown]
 # ---
-# ## 1. Why deep learning? *(framing — 15 min)*
+# ## 1. Why deep learning? *(5 min)*
 #
-# ### The paradigm shift
+# ### The big change: the computer learns what to look for
 # | | Traditional ML (≈ until 2012) | Deep learning |
 # |---|---|---|
 # | Features | **Designed by humans** (colour histograms, edge detectors, n-grams) | **Learned from data**, layer by layer |
@@ -142,12 +143,26 @@ print(f"✅ data + pretrained weights ready in {time.time() - t0:.0f}s")
 # | Scales with data? | Plateaus | Keeps improving with more data + compute |
 # | Example | SIFT + SVM | ResNet, Vision Transformer, BERT, GPT |
 #
-# 🧮 A deep network is a composition of simple functions,
-# $$f(x) = f_L\big(f_{L-1}(\cdots f_1(x))\big),\qquad f_l(h) = \sigma(W_l h + b_l)$$
-# Each layer re-represents the input a little more abstractly: **edges → textures → lesions → "bean rust"**.
-# All parameters $\theta = \{W_l, b_l\}$ are fitted by gradient descent on a loss $L(\theta)$.
+# 🧮 **A deep network is simple layers, one after another**
 #
-# ### The modern stack you will touch today
+# $$f(x) = f_L\big(\cdots f_2(f_1(x))\big)$$
+#
+# $$\text{each layer:} \quad h \;\mapsto\; \sigma(W h + b)$$
+#
+# | Symbol | Read it as | What it means here |
+# |---|---|---|
+# | $x$ | "x" | the input: one photo, as a long list of pixel numbers |
+# | $f_1, \dots, f_L$ | "layer one to layer L" | the layers, applied one after another; ResNet-50 has about 50 |
+# | $h$ | "h" | what one layer hands to the next: numbers describing the photo so far |
+# | $W$, $b$ | "weights", "bias" | the learned numbers: how strongly each input pushes each output, plus an offset |
+# | $\sigma$ | "sigma" | a simple bend; ReLU, the common one, turns negatives into zero |
+#
+# **Example:** each layer is a weighted sum, like a course grade of 0.3 × homework + 0.7 × exam, followed by
+# a bend: ReLU(−2) = 0 and ReLU(3) = 3. Without the bend, fifty layers would collapse into one straight line.
+# Layer by layer the description gets more abstract: **edges → textures → spots → "bean rust"**. Every
+# number in every layer is learned the same way, by gradient descent (section 2).
+#
+# ### The tools we use today
 # | Layer | Tool | Role |
 # |---|---|---|
 # | Compute | **GPU** (NVIDIA T4 on Colab), TPU, Apple MPS | thousands of parallel multiply-adds |
@@ -156,11 +171,16 @@ print(f"✅ data + pretrained weights ready in {time.time() - t0:.0f}s")
 # | Tracking | **TensorBoard** / Weights & Biases | log every experiment |
 # | Serving | **Gradio** | turn a model into a web app |
 #
-# 🧮 **Why GPUs?** Multiplying two $n\times n$ matrices costs $\approx 2n^3$ floating-point operations.
+# 🧮 **Why GPUs?** Multiplying two $n \times n$ grids of numbers (matrices) takes about
+#
+# $$2n^3 \ \text{operations}$$
+#
+# **Example:** each of the $n \times n$ answers needs $n$ multiplications and $n$ additions. For $n = 2{,}048$
+# that is about 17 billion operations for a single multiply. A GPU does thousands of them at the same time.
 # Let's measure it.
 
 # %%
-timer.start("1. Framing")
+timer.start("1. Why deep learning")
 def matmul_tflops(dev, n=2048, repeats=10, dtype=torch.float32):
     """Time n x n matrix multiplications and convert to TFLOP/s (2n^3 FLOPs each)."""
     a = torch.randn(n, n, device=dev, dtype=dtype); b = torch.randn(n, n, device=dev, dtype=dtype)
@@ -190,13 +210,13 @@ if device.type != "cpu":
 # same model, roughly half the memory and up to ~2x the speed.
 #
 # ---
-# ## 2. The PyTorch mental model *(20 min)*
+# ## 2. How a model learns (with PyTorch) *(12 min)*
 # Four ideas cover 90% of PyTorch: **tensors**, **autograd**, **`nn.Module`**, and **the training loop**.
 #
-# ### 2.1 Tensors — n-dimensional arrays that can live on a GPU
+# ### 2.1 Tensors: how data is stored as grids of numbers *(run it; we read it at home)*
 
 # %%
-timer.start("2. PyTorch mental model")
+timer.start("2. How a model learns")
 x = torch.tensor([[1., 2., 3.], [4., 5., 6.]])
 print("shape", x.shape, "| dtype", x.dtype, "| device", x.device)
 
@@ -215,13 +235,39 @@ print("normalised batch:", tuple(((images - mean) / std).shape))
 print("on device:", images.to(device).device)
 
 # %% [markdown]
-# ### 2.2 Gradient descent — by hand first
-# 🏭 Toy problem: an insurer estimates **repair cost** ($k) from the **damaged area** (m²).
-# Model: $\hat y = w x + b$. Loss (mean squared error):
-# $$L(w,b) = \frac{1}{N}\sum_{i=1}^{N} (w x_i + b - y_i)^2$$
-# 🧮 Partial derivatives (chain rule):
-# $$\frac{\partial L}{\partial w} = \frac{2}{N}\sum_i (\hat y_i - y_i)\,x_i \qquad \frac{\partial L}{\partial b} = \frac{2}{N}\sum_i (\hat y_i - y_i)$$
-# Update rule with learning rate $\eta$:  $\; w \leftarrow w - \eta\,\partial L/\partial w,\;\; b \leftarrow b - \eta\,\partial L/\partial b$
+# ### 2.2 Learning in small steps downhill (gradient descent)
+#
+# 🏭 **The problem:** an insurer predicts the **repair cost** (in thousands of dollars) from the **damaged area** (in square metres).
+#
+# **① The model: a straight line**
+#
+# $$\hat{y} = w\,x + b$$
+#
+# **② The loss: the average squared miss**
+#
+# $$L(w, b) = \frac{1}{N}\sum_{i=1}^{N} \left(\hat{y}_i - y_i\right)^2$$
+#
+# **③ The slopes: which way is downhill?**
+#
+# $$\frac{\partial L}{\partial w} = \frac{2}{N}\sum_{i=1}^{N} \left(\hat{y}_i - y_i\right) x_i \qquad\qquad \frac{\partial L}{\partial b} = \frac{2}{N}\sum_{i=1}^{N} \left(\hat{y}_i - y_i\right)$$
+#
+# **④ The update: one small step downhill**
+#
+# $$w_{\text{new}} = w - \eta\,\frac{\partial L}{\partial w} \qquad\qquad b_{\text{new}} = b - \eta\,\frac{\partial L}{\partial b}$$
+#
+# | Symbol | Read it as | What it means here |
+# |---|---|---|
+# | $x_i$, $y_i$ | "x i", "y i" | the damaged area and the true repair cost of claim number $i$ |
+# | $\hat{y}_i$ | "y-hat i" | our predicted cost for claim $i$ |
+# | $w$, $b$ | "w", "b" | the slope (thousands of dollars per m²) and the starting cost: the two numbers we learn |
+# | $N$, $\sum$ | "N", "sum" | the number of claims (200), and "add up over all of them" |
+# | $L$ | "the loss" | how wrong we are on average; smaller is better |
+# | $\partial L / \partial w$ | "d L d w" | if we nudge $w$ up a little, how fast does the loss change? |
+# | $\eta$ | "eta" | the size of each step, called the learning rate |
+#
+# **Worked example:** one claim of 10 m² that really cost 18.5. Start with $w = 1$ and $b = 0$, so we predict 10.
+# The miss is $10 - 18.5 = -8.5$, and the slope for $w$ is $2 \times (-8.5) \times 10 = -170$. Negative means
+# "raise $w$". With $\eta = 0.001$, the new $w$ is $1 - 0.001 \times (-170) = 1.17$: one step closer.
 
 # %%
 torch.manual_seed(0)
@@ -244,7 +290,7 @@ print(f"learned: cost ≈ {w:.2f} · area + {b:.2f}   (truth: 1.80 · area + 0.5
 viz.plot_curves({"MSE loss": losses}, "Gradient descent by hand", xlabel="step", logy=True)
 
 # %% [markdown]
-# ### 2.3 Autograd — PyTorch computes those derivatives for you
+# ### 2.3 Let PyTorch do the calculus (autograd)
 # Mark tensors with `requires_grad=True`; PyTorch records every operation in a **computational graph**
 # and `loss.backward()` walks it backwards applying the chain rule (reverse-mode automatic
 # differentiation). Cost: about one extra forward pass — for *all* parameters at once, whether you
@@ -270,10 +316,22 @@ print("match:", torch.allclose(w.grad, manual_w) and torch.allclose(b.grad, manu
 print(f"after a 2nd backward (no zero_grad) dL/dw = {w.grad.item():.5f}  ← doubled! → always optimizer.zero_grad()")
 
 # %% [markdown]
-# ### 2.4 🎛️ Try it: the learning rate
-# 🧮 For this quadratic loss, gradient descent is stable only if $\eta < 2/\lambda_{\max}$, where
-# $\lambda_{\max}$ is the largest eigenvalue of the Hessian (the loss "curvature").
-# Too small → crawls. Too large → each step overshoots further → **divergence**.
+# ### 2.4 🎛️ Try it: how big should each step be? (learning rate)
+#
+# 🧮 **The rule:** for this loss, gradient descent only settles down if each step is small enough:
+#
+# $$\eta < \frac{2}{\lambda_{\max}}$$
+#
+# | Symbol | Read it as | What it means here |
+# |---|---|---|
+# | $\eta$ | "eta" | the learning rate: the size of each step |
+# | $\lambda_{\max}$ | "lambda max" | how sharply the loss curves in its steepest direction (the cell below computes it) |
+# | $2 / \lambda_{\max}$ | "two over lambda max" | the largest safe step |
+#
+# **Example:** near the bottom, each step multiplies your distance from the bottom by $(1 - \eta\lambda)$.
+# With $\lambda = 16.9$: $\eta = 0.01$ gives $0.83$ (slow but steady); $\eta = 0.1$ gives $-0.69$ (it overshoots,
+# but zig-zags in); $\eta = 0.13$ gives $-1.20$, so every step lands 20% farther away and the loss **explodes**.
+# Too small crawls; too large diverges.
 
 # %%
 H = torch.tensor([[2 * (area**2).mean(), 2 * area.mean()], [2 * area.mean(), 2.0]])   # Hessian of the MSE
@@ -285,7 +343,7 @@ curves = {f"lr={lr}": gradient_descent_by_hand(lr)[2] for lr in LEARNING_RATES}
 viz.plot_curves(curves, "Same problem, different learning rates", logy=True)
 
 # %% [markdown]
-# ### 2.5 Anatomy of a model: `nn.Module`
+# ### 2.5 Building a model in code
 # Every PyTorch model — from this 3-layer net to GPT — is a class with
 # **`__init__`** (declare layers = parameters) and **`forward`** (how data flows).
 
@@ -307,7 +365,7 @@ print(model)
 print("parameters:", sum(p.numel() for p in model.parameters()))
 
 # %% [markdown]
-# ### 2.6 `Dataset` + `DataLoader`
+# ### 2.6 Feeding the model data in small batches
 # A `Dataset` answers two questions — *how many items?* (`__len__`) and *give me item i*
 # (`__getitem__`). A `DataLoader` batches, shuffles and (optionally) loads in parallel.
 
@@ -330,10 +388,33 @@ xb, yb = next(iter(loader))
 print("one batch:", tuple(xb.shape), tuple(yb.shape))
 
 # %% [markdown]
-# ### 2.7 The training loop — five lines you will write for the rest of your career
-# 🧮 Loss for classification = **cross-entropy**: softmax turns logits $z$ into probabilities
-# $p_k = e^{z_k} / \sum_j e^{z_j}$ and $L = -\log p_{y}$. Its gradient is beautifully simple:
-# $\partial L/\partial z_k = p_k - \mathbb{1}[k=y]$ — push the right class up, the rest down.
+# ### 2.7 The training loop: five lines that train any model
+#
+# 🧮 **How a classifier is scored: softmax and cross-entropy**
+#
+# ① Softmax turns the model's raw scores into probabilities that add up to 1:
+#
+# $$p_k = \frac{e^{z_k}}{\sum_j e^{z_j}}$$
+#
+# ② The loss (cross-entropy) is small when the right class gets a high probability:
+#
+# $$L = -\log p_y$$
+#
+# ③ Its slope is beautifully simple: push the right class up and the others down:
+#
+# $$\frac{\partial L}{\partial z_k} = p_k - \mathbb{1}[k = y]$$
+#
+# | Symbol | Read it as | What it means here |
+# |---|---|---|
+# | $z_k$ | "z sub k" | the raw score the model gives class $k$; any number |
+# | $p_k$ | "p sub k" | the probability for class $k$ after softmax |
+# | $e$ | "e" | the number 2.718…; $e^{z}$ is always positive |
+# | $y$, $p_y$ | "the true class" | $p_y$ is the probability given to the right answer |
+# | $\mathbb{1}[k = y]$ | "one if k is the true class" | 1 for the right class, 0 for the others |
+#
+# **Example:** scores $(2.0,\ 1.0,\ 0.1)$ become probabilities $(0.66,\ 0.24,\ 0.10)$. If the first class is
+# right, the loss is $-\log 0.66 = 0.42$: small. If the third is right, it is $-\log 0.10 = 2.3$: big.
+# Confident and wrong is expensive.
 
 # %%
 set_seed(0)
@@ -365,7 +446,7 @@ RESULTS["moons_acc"] = float(acc)
 
 # %% [markdown]
 # ---
-# ## 3. 🌱 Ticket LEAF-101 — leaf-disease detection with transfer learning *(40 min)*
+# ## 3. 🌱 Project 1 (LEAF-101): diagnose leaf disease from a photo *(28 min)*
 #
 # > **LEAF-101** · *As a farmer co-op, we want growers to photograph a bean leaf with their phone and
 # > get an instant diagnosis, so that disease is treated before it spreads.*
@@ -380,7 +461,7 @@ RESULTS["moons_acc"] = float(acc)
 
 # %%
 # 🛟 CATCH-UP (vision): rebuilds device, config, data loaders. Safe to run any time.
-timer.start("3. Vision transfer learning")
+timer.start("3. Project 1: leaf disease")
 from dlhandson.catchup import vision_state, trained_vision_model
 S = vision_state(device)
 vcfg, loaders, CLASSES = S["cfg"], S["loaders"], S["class_names"]
@@ -397,7 +478,7 @@ viz.show_class_examples(raw_train, per_class=4)
 print("image size on disk:", raw_train[0][0].size)
 
 # %% [markdown]
-# ### 3.2 The "2015 way": hand-crafted features + logistic regression
+# ### 3.2 The old way: hand-made features + logistic regression (the score to beat)
 # A human decides that **colour distribution** (rust is orange, spots are brown) and **edge texture**
 # matter, computes them by hand, and fits a classic model. This is our baseline to beat.
 
@@ -417,11 +498,23 @@ print(f"Hand-crafted features: {Xtr.shape[1]} numbers per image → validation a
 RESULTS["vision_baseline_val_acc"] = baseline_acc
 
 # %% [markdown]
-# ### 3.3 Pre-processing: what the network actually sees
-# Pretrained ImageNet models expect 224×224 RGB, standardised per channel with ImageNet statistics:
-# $$x' = \frac{x - \mu}{\sigma},\quad \mu = (0.485, 0.456, 0.406),\ \sigma = (0.229, 0.224, 0.225)$$
-# 🧮 Standardised inputs keep activations and gradients in a healthy range — and they must match what
-# the model saw during pre-training, or its learned features no longer line up.
+# ### 3.3 Preparing photos for the model
+#
+# Pretrained ImageNet models expect 224 × 224 colour photos, scaled the same way as the 1.28 million photos
+# they learned from. Each colour is scaled separately:
+#
+# $$x' = \frac{x - \mu}{\sigma}$$
+#
+# | Symbol | Read it as | What it means here |
+# |---|---|---|
+# | $x$ | "x" | a pixel's brightness for one colour, from 0 to 1 |
+# | $x'$ | "x prime" | the scaled value the model receives |
+# | $\mu$ | "mu" | ImageNet's average for that colour: red 0.485, green 0.456, blue 0.406 |
+# | $\sigma$ | "sigma" | ImageNet's spread for that colour: red 0.229, green 0.224, blue 0.225 |
+#
+# **Example:** a red value of 0.8 becomes $(0.8 - 0.485) / 0.229 = 1.38$. Scaled inputs keep the numbers inside
+# the network in a healthy range, and they must match what the model saw during pre-training, or its learned
+# features no longer line up.
 
 # %%
 batch = next(iter(loaders["train"]))
@@ -429,14 +522,30 @@ print("pixel_values:", tuple(batch["pixel_values"].shape), "| labels:", batch["l
 print(f"value range after normalisation: [{batch['pixel_values'].min():.2f}, {batch['pixel_values'].max():.2f}]")
 
 # %% [markdown]
-# ### 3.4 Transfer learning step 1-2: load a pretrained ResNet, freeze it, replace the head
-# 🧮 Think of the classifier as $f(x) = h_\phi(g_\theta(x))$:
-# - $g_\theta$ = **backbone** (ResNet-50: 23.5M parameters pretrained on 1.28M ImageNet photos)
-# - $h_\phi$ = **head**, a single linear layer $\mathbb{R}^{2048} \to \mathbb{R}^{3}$ for our classes
+# ### 3.4 Reuse a model (ResNet) that already knows how to see (transfer learning)
 #
-# We **freeze** $\theta$ (`requires_grad=False`: no gradients, no updates) and train only $\phi$.
-# ResNet's key idea, the **residual connection** $y = F(x) + x$, gives gradients an identity
-# "highway" ($\partial y/\partial x = \partial F/\partial x + I$) so 50+ layers stay trainable.
+# 🧮 **Split the model into two parts:**
+#
+# $$f(x) = h\big(g(x)\big)$$
+#
+# | Symbol | Read it as | What it means here |
+# |---|---|---|
+# | $x$ | "x" | one photo |
+# | $g$ | "g" | the pretrained part of ResNet-50 (the "backbone"): 23.5 million numbers learned from 1.28 million ImageNet photos; it turns a photo into 2,048 describing numbers |
+# | $h$ | "h" | our new last layer (the "head"): 2,048 numbers in, 3 leaf types out |
+# | $f$ | "f" | the whole classifier: photo in, leaf type out |
+#
+# We **freeze** $g$ (`requires_grad=False`: no slopes, no updates) and train only $h$: that is
+# $2{,}048 \times 3 + 3 = 6{,}147$ numbers instead of 23.5 million. Like hiring an experienced photographer and
+# teaching them only the bean-disease words.
+#
+# 🧮 **Why ResNet can be 50 layers deep: shortcut (residual) connections**
+#
+# $$y = F(x) + x \qquad\qquad \frac{\partial y}{\partial x} = \frac{\partial F}{\partial x} + I$$
+#
+# Each block adds its change $F(x)$ on top of its input $x$ instead of replacing it. $I$ (the identity) is the
+# plain "+1" that the shortcut adds to the slope: an express lane that carries the learning signal back to the
+# first layers even when $\partial F / \partial x$ is tiny.
 
 # %%
 from dlhandson.models import build_vision_model, count_parameters, model_size_mb, get_head
@@ -448,10 +557,12 @@ print(f"trainable after freezing: {p['trainable']:,}  ({p['trainable_pct']}%)  �
 print("new head:", get_head(model))
 
 # %% [markdown]
-# ### 3.5 Train the head (no augmentation yet)
-# - **Optimizer:** AdamW, $\eta = 10^{-3}$ — a random head tolerates a fairly large learning rate.
-# - **Mixed precision** on CUDA: float16 matmuls on Tensor Cores; a `GradScaler` multiplies the loss by
-#   a large $S$ before `backward()` so tiny gradients don't underflow to 0, then divides by $S$.
+# ### 3.5 Teach a new last layer our 3 leaf types
+# - **Optimizer:** AdamW with learning rate $\eta = 10^{-3}$ (0.001). The new last layer starts random, so it
+#   can take fairly big steps.
+# - **Mixed precision** (on CUDA GPUs): the big multiplies run in 16-bit numbers on the GPU's Tensor Cores.
+#   Very small slopes can round to 0 in 16 bits, so a `GradScaler` multiplies the loss by a large number
+#   before `backward()` and divides the slopes by the same number afterwards.
 # - Every run is logged to **TensorBoard** (`runs/`).
 
 # %%
@@ -472,7 +583,7 @@ print(f"\nbest validation accuracy: {hist_plain.best_val_acc:.1%}  vs hand-craft
 RESULTS["vision_head_noaug_val_acc"] = hist_plain.best_val_acc
 
 # %% [markdown]
-# ### 3.6 Data augmentation: more data for free
+# ### 3.6 More training photos for free (data augmentation)
 # Each epoch the network sees a *slightly different* version of every photo. We encode facts we know
 # about the problem (**invariances**): leaves can be photographed at any angle (flips, rotation),
 # framed differently (random crop), in different light (brightness/contrast).
@@ -508,19 +619,20 @@ RESULTS["vision_head_aug_val_acc"] = hist_aug.best_val_acc
 # off with more epochs and when fine-tuning deeper layers (try `epochs=10` in the challenge). It also
 # costs extra CPU time per image. Trade-offs, not magic.
 #
-# ### 3.7 🎛️ 5-MINUTE CHALLENGE — break it, then beat it
+# ### 3.7 🎛️ 3-minute challenge: break it, then beat it
 # Change the knobs, run the cell, watch validation accuracy. Ideas and what to look for:
 #
 # | Try | What you should see | Why |
 # |---|---|---|
-# | `lr=1.0` | loss jumps around or 💥 NaN | steps overshoot: $\eta > 2/\lambda_{\max}$ |
+# | `lr=1.0` | loss jumps around or 💥 NaN | steps overshoot: above the safe limit from 2.4 |
 # | `lr=1e-5` | barely learns in 5 epochs | steps too tiny |
 # | `batch_size=4` vs `128` | time per epoch & curve noise change | small batches = noisy gradients, poor GPU use; big batches need more memory |
 # | `optimizer="sgd"` | slower start than AdamW at the same lr | Adam adapts a per-parameter step size |
 # | `augment=False, epochs=15` | train → 100%, validation stalls | overfitting |
 # | `label_smoothing=0.1` | slightly lower confidence | softer targets, better calibration |
 #
-# Post your best **validation accuracy + settings** on the class leaderboard (link on the slide).
+# When time is up, the instructor asks for a **show of hands**: who beat 88%? Who beat 90%? Be ready to say
+# which knob you changed. Part A of `02_challenge_solutions` explains every result.
 
 # %%
 # 🎛️ CHALLENGE KNOBS — edit and re-run this cell as often as you like
@@ -541,14 +653,15 @@ c_opt = build_optimizer(ccfg.optimizer, trainable_params(c_model), ccfg.lr, ccfg
 t0 = time.time()
 c_hist = fit(c_model, c_loaders["train"], c_loaders["validation"], epochs=ccfg.epochs, optimizer=c_opt,
              device=device, amp=ccfg.amp, label_smoothing=ccfg.label_smoothing, name="challenge")
-print(f"\n📋 LEADERBOARD ENTRY → best val acc {c_hist.best_val_acc:.1%} | {KNOBS} | {time.time()-t0:.0f}s on {device.type}")
+print(f"\n📋 YOUR RESULT → best val acc {c_hist.best_val_acc:.1%} | {KNOBS} | {time.time()-t0:.0f}s on {device.type}")
 
 # %% [markdown]
-# ### 3.8 Transfer learning step 3: fine-tune the top of the backbone
+# ### 3.8 Let the model adjust its top layers (fine-tuning)
 # Early layers learn generic features (edges, colours) useful for any image; the **last block**
 # (`layer4`) learns combinations specific to ImageNet objects. We unfreeze it and use
-# **discriminative learning rates**: head $10^{-3}$, backbone $10^{-4}$ — big steps for the random head,
-# gentle steps for weights that are already good (avoids *catastrophic forgetting*).
+# **different step sizes** (*discriminative learning rates*): 0.001 for the new last layer and 0.0001, ten
+# times smaller, for the pretrained top block. Big steps for the random layer, gentle steps for numbers that are
+# already good, so the model doesn't forget what it knew (*catastrophic forgetting*).
 #
 # Trade-off: more trainable parameters → better fit, but more GPU memory, slower epochs, and more risk
 # of overfitting a small dataset.
@@ -572,7 +685,7 @@ RESULTS["vision_finetune_val_acc"] = hist_ft.best_val_acc
 print(f"\nhead only {hist_aug.best_val_acc:.1%}  →  + fine-tuned layer4 {hist_ft.best_val_acc:.1%}")
 
 # %% [markdown]
-# ### 3.9 Batch size vs GPU memory — *watch it crash (safely)*
+# ### 3.9 ⏩ How much fits on the GPU? (memory and batch size) · skipped in class, the numbers are on the slide
 # 🧮 Memory for one training step ≈ weights + gradients + optimizer state (Adam keeps 2 extra copies)
 # **+ activations saved for backprop**. Activations grow **linearly with batch size** and with the
 # number of pixels (quadratically with image side). Bigger batches train faster per image… until the
@@ -593,11 +706,25 @@ else:
     find_max_batch_size(nn.Linear(1, 1), vcfg.image_size, device)
 
 # %% [markdown]
-# ### 3.10 Final exam: the test set (touch it once)
-# 🧮 Per-class metrics, with TP/FP/FN counted for that class:
-# $\text{precision} = \frac{TP}{TP+FP}$ ("when it says rust, is it rust?"),
-# $\text{recall} = \frac{TP}{TP+FN}$ ("of all rust leaves, how many did it catch?"),
-# $F_1 = \frac{2PR}{P+R}$. For a disease scanner, **recall on diseased leaves** is what farmers care about.
+# ### 3.10 Final exam on photos it has never seen (test set)
+#
+# 🧮 **Three scores for each leaf type** (shown here for bean rust):
+#
+# $$\text{precision } P = \frac{TP}{TP + FP} \qquad\quad \text{recall } R = \frac{TP}{TP + FN} \qquad\quad F_1 = \frac{2PR}{P + R}$$
+#
+# | Symbol | Read it as | What it means here (bean rust) |
+# |---|---|---|
+# | $TP$ | "true positives" | rust leaves called rust |
+# | $FP$ | "false positives" | other leaves wrongly called rust |
+# | $FN$ | "false negatives" | rust leaves it missed |
+# | $P$ | "precision" | when it says rust, is it rust? |
+# | $R$ | "recall" | of all the rust leaves, how many did it catch? |
+# | $F_1$ | "F-one" | one number that balances both |
+#
+# **Example:** in the verified T4 run, 41 rust leaves were called rust, 10 other leaves were wrongly called
+# rust and 2 rust leaves were missed: $P = 41/51 = 0.80$, $R = 41/43 = 0.95$ and $F_1 = 0.87$. $F_1$ punishes
+# imbalance: precision 1.0 with recall 0.1 gives 0.18, not the 0.55 a plain average suggests. For a disease
+# scanner, **recall on diseased leaves** is what farmers care about.
 
 # %%
 from sklearn.metrics import classification_report
@@ -619,7 +746,7 @@ else:
     print("No mistakes on the test set!")
 
 # %% [markdown]
-# ### 3.11 Stress test: what happens with photos it has never seen?
+# ### 3.11 Try to fool it: blurry, dark and non-leaf photos
 # Production inputs are messy. We test four kinds of "unusual" images:
 # 1. **Bean leaves in harder conditions** — blur, dusk, glare, heavy compression, zoomed into a corner
 # 2. **Not a leaf at all** — a coffee cup, a cat
@@ -648,13 +775,32 @@ pd.DataFrame([{k: it[k] for k in ("group", "name", "pred", "confidence")} for it
 # That is not a bug in our code — it is how softmax classifiers behave outside their training
 # distribution, and it is one of the most common ways ML fails in production.
 #
-# ### 3.12 The fix: confidence threshold → "ask a human" (selective prediction)
-# 🧮 Confidence = maximum softmax probability $\max_k p_k$. Uncertainty = entropy
-# $H(p) = -\sum_k p_k \log p_k$ (0 = certain, $\log 3 \approx 1.10$ = clueless).
-# Rule: act automatically only if $\max_k p_k \ge \tau$, otherwise route to a human.
-# Raising $\tau$ trades **coverage** (share automated) for **accuracy** on what is automated.
+# ### 3.12 When the model is unsure, ask a human
+#
+# 🧮 **Confidence** is the model's top probability. **The rule:** act automatically only when it is high enough;
+# otherwise a person decides.
+#
+# $$\text{confidence} = \max_k \, p_k \qquad\qquad \text{act automatically only if} \quad \max_k \, p_k \;\ge\; \tau$$
+#
+# | Symbol | Read it as | What it means here |
+# |---|---|---|
+# | $p_k$ | "p sub k" | the model's probability for leaf type $k$ |
+# | $\max_k$ | "the largest over k" | the top probability: the model's confidence |
+# | $\tau$ | "tau" | the threshold; below it, an agronomist decides |
+#
+# **Example:** if the model says $(0.92,\ 0.05,\ 0.03)$, its confidence is 0.92. A cat scored at about a third
+# for each class has confidence near 0.35, so it goes to a person.
+#
+# Raising $\tau$ trades **coverage** (the share decided automatically) for **accuracy** on what is automated.
 # We pick $\tau$ on the **validation** set to hit a business target (here: 98% accuracy on automatic
 # decisions), then apply it everywhere.
+#
+# **Another way to measure doubt: entropy**, one number that uses all the probabilities:
+#
+# $$H(p) = -\sum_k p_k \log p_k$$
+#
+# It is 0 when the model is certain and $\log 3 \approx 1.10$ when it has no idea (a third each). For
+# $(0.92,\ 0.05,\ 0.03)$ it is 0.33.
 
 # %%
 from dlhandson.ood import selective_curve, pick_threshold, route
@@ -676,11 +822,11 @@ RESULTS.update(vision_tau=TAU, vision_test_coverage=float(auto.mean()))
 # %% [markdown]
 # **Honest limits:** a threshold catches many odd inputs but not all (some nonsense still scores high).
 # Production systems add more defences: an explicit **"not a leaf"** class trained on negative examples,
-# dedicated OOD detectors, **calibration** (temperature scaling: $p = \mathrm{softmax}(z/T)$ with $T$ fit
-# on validation), input checks (blur/brightness), and **monitoring** of the confidence distribution over
+# dedicated OOD detectors, **calibration** (temperature scaling: divide the raw scores by one number,
+# chosen on the validation set, before the softmax), input checks (blur/brightness), and **monitoring** of the confidence distribution over
 # time (data drift).
 #
-# ### 3.13 📱 Try your own photo *(optional — off by default so "Run all" never stops)*
+# ### 3.13 📱 Try your own photo *(optional, at home — off by default so "Run all" never stops)*
 # Set `TRY_MY_PHOTO = True` and run: a file picker opens (photos from your phone's gallery work if
 # they are on this computer — AirDrop / Google Photos / email them to yourself). Easier on a phone?
 # In **section 5.7** we launch a web app with a QR code — open it on your phone and upload straight
@@ -695,11 +841,11 @@ if TRY_MY_PHOTO:
     viz.show_predictions(mine, ncols=4, threshold=TAU)
 
 # %% [markdown]
-# ### 3.14 ⏩ Instructor demo: swap in a Vision Transformer (two-line change)
+# ### 3.14 ⏩ At home: try a newer image model (Vision Transformer)
 # A **ViT** cuts the image into 16×16 patches, treats them as a sequence of "tokens", and applies
 # self-attention — the same architecture family as BERT and GPT. In our code it is a config change.
-# ViT-B/16 has **86M** parameters (3.7× ResNet-50) and a ~330 MB download, which is why we demo it
-# rather than everyone running it.
+# ViT-B/16 has **86M** parameters (3.7× ResNet-50) and a ~330 MB download, which is why it is an at-home extra
+# rather than part of the class.
 
 # %%
 RUN_VIT_DEMO = device.type == "cuda" and not smoke_mode()
@@ -718,7 +864,7 @@ else:
 
 # %% [markdown]
 # ---
-# ## 4. 💬 Ticket SUPPORT-202 — routing customer messages with a Transformer *(20 min)*
+# ## 4. 💬 Project 2 (SUPPORT-202): send each customer message to the right team *(13 min)*
 #
 # > **SUPPORT-202** · *As a digital bank, we receive thousands of chat messages a day. Route each one to
 # > one of 77 intents (card arrival, refund, top-up…) so customers get the right answer fast.*
@@ -731,7 +877,7 @@ else:
 
 # %%
 # 🛟 CATCH-UP (text): rebuilds config, data, tokenizer and loaders. Safe to run any time.
-timer.start("4. NLP fine-tuning")
+timer.start("4. Project 2: customer messages")
 from dlhandson.catchup import text_state, trained_text_model, CKPT_DIR
 from dlhandson.models import build_text_model, count_parameters, trainable_params
 from dlhandson.train import build_optimizer, build_scheduler, fit, evaluate
@@ -742,7 +888,7 @@ tcfg, tdata, tok, tloaders = T["cfg"], T["data"], T["tokenizer"], T["loaders"]
 print(tcfg)
 
 # %% [markdown]
-# ### 4.1 Look at the data
+# ### 4.1 Look at the messages first
 
 # %%
 print(f"{len(tdata['train']):,} train | {len(tdata['validation']):,} validation | {len(tdata['test']):,} test messages, "
@@ -752,7 +898,7 @@ print(f"messages per intent: min {counts.min()}, median {int(counts.median())}, 
 tdata["train"].sample(8, random_state=1)[["text", "category"]]
 
 # %% [markdown]
-# ### 4.2 Tokenisation: text → integers
+# ### 4.2 Turning words into numbers (tokens)
 # Networks only eat numbers. DistilBERT's **WordPiece** tokenizer splits text into sub-words from a
 # 30,522-entry vocabulary, so rare words become known pieces (`##` marks a continuation) and nothing is
 # ever "out of vocabulary". Special tokens: `[CLS]` (its final vector summarises the sentence) and `[SEP]`.
@@ -772,19 +918,37 @@ print(f"95th percentile: {np.percentile(lengths, 95):.0f} tokens → max_length=
       f"{(lengths > tcfg.max_length).mean():.1%} of messages")
 
 # %% [markdown]
-# 🧮 **Why not pad everything to 512?** Self-attention compares every token with every other token:
-# cost $\propto n^2$ in sequence length $n$. Padding a 20-token message to 512 multiplies the work by
-# ~650× for zeros. We use **dynamic padding**: each batch is padded only to its own longest message.
+# 🧮 **Why not pad every message to 512 word pieces?** Attention compares every word piece with every other
+# one, so its cost grows with the **square** of the message length $n$:
 #
-# ### 4.3 The Transformer in one formula
-# Each token's vector is projected to a **query** $q$, **key** $k$ and **value** $v$. Every token
-# attends to every other token:
-# $$\mathrm{Attention}(Q,K,V) = \mathrm{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}\right)V$$
-# The softmax weights say *"how much should this word look at that word"* — e.g. "isn't" attends to
-# "working". Stack this (multi-head, 6 layers in DistilBERT, 768 dimensions) and you get contextual
-# meaning. **GPT and other LLMs are the same building block, scaled up.**
+# $$\text{cost} \propto n^2$$
 #
-# ### 4.4 Experiment A — freeze the encoder, train only the head (like the leaves)
+# Padding a 20-piece message to 512 multiplies the work by about $(512 / 20)^2 \approx 650$, all of it spent on
+# padding. We use **dynamic padding**: each batch is padded only to its own longest message.
+#
+# ### 4.3 How the model reads a sentence (attention)
+#
+# Each word piece is turned into three lists of numbers: a **query** (what am I looking for?), a **key**
+# (what do I contain?) and a **value** (what do I pass on?). Then every word piece looks at every other one:
+#
+# $$\mathrm{Attention}(Q, K, V) = \mathrm{softmax}\!\left(\frac{Q K^{\top}}{\sqrt{d_k}}\right) V$$
+#
+# | Symbol | Read it as | What it means here |
+# |---|---|---|
+# | $Q$ | "queries" | for each word piece: what am I looking for? |
+# | $K$ | "keys" | for each word piece: what do I contain? |
+# | $V$ | "values" | for each word piece: what information do I pass on? |
+# | $Q K^{\top}$ | "Q times K transpose" | every question compared with every key: a table of match scores |
+# | $\sqrt{d_k}$ | "root d k" | divide by 8 ($d_k = 64$) so the scores stay moderate |
+# | softmax, then $V$ | "softmax, times V" | turn the scores into weights that add up to 1, then take a weighted average of the values |
+#
+# **Example:** in "my card payment isn't working", the piece "isn" asks *what am I negating?* Its query matches
+# "working" best, so it might give "working" a weight of 0.6 and "payment" 0.2 (illustrative numbers): its new
+# meaning is mostly about "working". Stack this (12 attention heads, 6 layers in DistilBERT, 768 numbers per
+# word piece) and you get meaning in context. **GPT and other large language models use the same building
+# block, scaled up.**
+#
+# ### 4.4 Experiment A: train only the last layer · start it and keep listening
 
 # %%
 from dlhandson.models import build_text_model
@@ -801,12 +965,13 @@ RESULTS["text_frozen_val_acc"] = hist_frozen.best_val_acc
 del frozen
 
 # %% [markdown]
-# ### 4.5 Experiment B — full fine-tuning
-# Now every one of the 66M weights moves, but **gently**:
-# - small learning rate $\eta = 5\times10^{-5}$ (pretrained weights are already good; big steps cause
-#   catastrophic forgetting),
-# - **warm-up** for the first 10% of steps, then linear decay to 0,
-# - **gradient clipping** at $\lVert g\rVert_2 \le 1$ and mixed precision on CUDA.
+# ### 4.5 Experiment B: train the whole model (fine-tuning)
+# Now every one of the 66 million numbers moves, but **gently**:
+# - a small learning rate, $\eta = 5 \times 10^{-5}$ (0.00005): the pretrained numbers are already good, and big
+#   steps would wipe out what the model knows (*catastrophic forgetting*);
+# - **warm-up** for the first 10% of steps, then a straight-line decay to 0 (the chart below shows it);
+# - **gradient clipping**: the slopes together may never be longer than 1 (section 5.2 shows why), plus mixed
+#   precision on CUDA.
 
 # %%
 set_seed(42)
@@ -850,7 +1015,7 @@ viz.most_confused(t_out["labels"], t_out["preds"], tdata["label_names"], k=8)
 # Read the confused pairs: many are **genuinely ambiguous even for humans**. That is a data/label-design
 # conversation with the business, not just a modelling problem.
 #
-# ### 4.7 🎛️ Try your own messages + "route to a human"
+# ### 4.7 🎛️ Try your own messages; unsure ones go to a person
 
 # %%
 from dlhandson.demo_app import make_text_predictor
@@ -876,7 +1041,7 @@ pd.DataFrame(rows)
 
 # %% [markdown]
 # ---
-# ## 5. Deep learning in the real world: debugging & MLOps *(20 min)*
+# ## 5. When training goes wrong, and how to share a model (MLOps) *(12 min)*
 # **"Why is my model not learning?"** — the checklist professionals run, in order:
 # 1. **Overfit a single batch** (the golden rule)
 # 2. Check the **optimizer actually holds your parameters**
@@ -885,7 +1050,7 @@ pd.DataFrame(rows)
 
 # %%
 # 🛟 CATCH-UP (debugging): only the leaf data is needed here.
-timer.start("5. Pitfalls & MLOps")
+timer.start("5. When training goes wrong")
 from dlhandson.catchup import vision_state, trained_vision_model, CKPT_DIR
 from dlhandson.data_vision import make_vision_loaders, eval_transform
 from dlhandson.models import build_vision_model, trainable_params
@@ -903,7 +1068,7 @@ small_batch = next(iter(make_vision_loaders(one_batch_cfg, S["beans_dir"], devic
 print("batch for the test:", tuple(small_batch["pixel_values"].shape))
 
 # %% [markdown]
-# ### 5.1 The golden rule: overfit one batch
+# ### 5.1 First check: can it learn 16 examples by heart?
 # If a model **cannot reach 100% training accuracy on 16 images**, more data or more epochs will not
 # help — your code has a bug. ✅ First the correct pipeline:
 
@@ -935,7 +1100,7 @@ RESULTS["overfit_one_batch"] = {"correct": ok["passed"], "bug_detected": not bad
 # 🏭 Teams turn this into an **automated test** (`tests/test_debugging.py`) that runs on every code
 # change, so a broken training loop is caught in CI, not after a week of GPU time.
 #
-# ### 5.2 Exploding gradients → `inf` → `NaN`
+# ### 5.2 When the numbers blow up - inf, NaN (exploding gradients)
 # When the learning rate is too large (or weights/activations blow up), each update overshoots,
 # the loss grows geometrically, overflows to `inf`, and then `inf − inf = NaN` poisons every weight.
 
@@ -950,16 +1115,31 @@ print(f"lr=0.1 without clipping: {'NaN' if math.isnan(runs[0.1][-1]) else runs[0
       f"with gradient clipping (‖g‖ ≤ 1): final loss {clipped[-1]:.3f}")
 
 # %% [markdown]
-# 🧮 **Gradient clipping:** if $\lVert g\rVert_2 > \tau$ then $g \leftarrow g\,\tau/\lVert g\rVert_2$ — same
-# direction, capped length. Other fixes: lower LR, LR warm-up, normalisation layers, check inputs for
-# NaN/inf. `dlhandson.train.fit` has a **NaN guard**: it stops cleanly and tells you why, instead of
-# silently training a broken model.
+# 🧮 **Gradient clipping:** if the slopes get too long, shrink them but keep their direction:
 #
-# ### 5.3 Vanishing gradients — why depth used to be hard
-# 🧮 Backprop multiplies one local derivative per layer. The sigmoid's derivative is at most 0.25, so
-# after 20 layers: $0.25^{20} \approx 10^{-12}$ → the first layers receive (almost) no signal.
-# Fixes that made deep learning work: **ReLU**, **He initialisation**, **normalisation**, and
-# **residual connections** (ResNet).
+# $$\text{if } \lVert g \rVert > \tau: \qquad g \;\leftarrow\; g \cdot \frac{\tau}{\lVert g \rVert}$$
+#
+# | Symbol | Read it as | What it means here |
+# |---|---|---|
+# | $g$ | "the gradient" | all the slopes, one per number in the model |
+# | $\lVert g \rVert$ | "the length of g" | the square root of the sum of the squares of all the slopes |
+# | $\tau$ | "tau" | the longest gradient we allow: 1.0 (not the same tau as in 3.12; maths reuses letters) |
+#
+# **Example:** $g = (3,\ 4)$ has length 5. With a limit of 1 it becomes $(0.6,\ 0.8)$: same direction, shorter,
+# like a speed limiter. Other fixes: a lower learning rate, learning-rate warm-up, normalisation layers, and
+# checking the inputs for NaN/inf. `dlhandson.train.fit` has a **NaN guard**: it stops cleanly and tells you
+# why, instead of silently training a broken model.
+#
+# ### 5.3 When the learning signal fades away (vanishing gradients)
+#
+# 🧮 Learning sends the error backwards through the layers and multiplies one slope per layer (the chain rule
+# from 2.3). The slope of the sigmoid bend is never more than a quarter:
+#
+# $$\sigma'(x) \le 0.25 \qquad\Longrightarrow\qquad 0.25^{20} \approx 10^{-12}$$
+#
+# After 20 layers the first layers receive almost no signal, like a whisper passed through twenty people.
+# The fixes that made deep learning work: **ReLU**, **He initialisation**, **normalisation**, and **shortcut
+# (residual) connections** (ResNet, section 3.4).
 
 # %%
 from dlhandson.debug_tools import vanishing_gradient_experiment
@@ -969,7 +1149,7 @@ for name, g in norms.items():
     print(f"{name:>16}: first layer {g[0]:.1e} vs last layer {g[-1]:.1e}  (ratio {g[0]/g[-1]:.0e})")
 
 # %% [markdown]
-# ### 5.4 Experiment tracking
+# ### 5.4 ⏩ Keep a record of every run - Experiment Tracking *(optional in class)*
 # Every `fit` above was logged to `runs/` (TensorBoard + CSV + the exact config). Open the dashboard:
 # compare runs, spot divergence, share results. Prefer hosted dashboards? Weights & Biases works the
 # same way — set `DLH_WANDB=1` and store your key as a **Colab Secret** (🔑 icon) named `WANDB_API_KEY`.
@@ -983,7 +1163,7 @@ else:
     print("(headless run: TensorBoard UI skipped)")
 
 # %% [markdown]
-# ### 5.5 Save, reload, document
+# ### 5.5 Save the model safely and describe it
 # - **safetensors** instead of pickle: `torch.save` uses Python pickle, and *loading a malicious pickle
 #   can run code on your machine*. safetensors stores raw tensors only.
 # - Always **round-trip test**: reload the file into a fresh model and check predictions match.
@@ -1014,7 +1194,7 @@ card = f"""# Model card — LEAF-101 bean leaf disease classifier
 print(card)
 
 # %% [markdown]
-# ### 5.6 From notebook to production code
+# ### 5.6 ⏩ From notebook to real software *(optional in class)*
 # The notebook is for learning. The **same logic** lives in a tested Python package — that is what a
 # team reviews, versions, and deploys:
 
@@ -1057,7 +1237,7 @@ else:
 # demo.close()
 
 # %% [markdown]
-# ### 5.8 Security & responsible-AI checklist (what reviewers will ask you)
+# ### 5.8 Safety checklist before you share a model
 # | Area | Practice used in this project |
 # |---|---|
 # | Secrets | Tokens live in **Colab Secrets** / environment variables; a git **pre-commit hook** blocks token-like strings |
@@ -1070,14 +1250,37 @@ else:
 # | Bias & coverage | Leaf photos come from one region; text is UK/US banking English — test before using elsewhere |
 #
 # ---
-# ## 6. Horizons — where this goes next *(5 min)*
+# ## 6. Where this leads next (ChatGPT-style models and more) *(2 min, part of the wrap-up)*
 # | Today you used | Scaled up, it becomes |
 # |---|---|
-# | DistilBERT (66M, encoder) | **LLMs** (decoder-only Transformers, billions of parameters) trained to predict the next token: $L = -\sum_t \log p_\theta(x_t \mid x_{<t})$ |
-# | Fine-tuning all weights | **Parameter-efficient fine-tuning (LoRA):** keep $W$ frozen, learn a low-rank update $W' = W + BA$ with rank $r \ll d$ — fine-tune big models on one GPU |
-# | A labelled dataset | **Prompting** and **retrieval-augmented generation (RAG)**: give an LLM your documents at question time |
-# | Classifiers ($p(y\mid x)$) | **Generative models** ($p(x)$): **GANs** — a generator $G$ and discriminator $D$ play $\min_G \max_D\ \mathbb{E}[\log D(x)] + \mathbb{E}[\log(1-D(G(z)))]$; **diffusion models** learn to remove noise step by step (image and video generation) |
+# | DistilBERT (66 million numbers, reads text) | **Large language models (LLMs)**: billions of numbers, trained to predict the next word piece (formula ① below) |
+# | Fine-tuning all the numbers | **LoRA**: keep the big model frozen and learn a small add-on (formula ② below), so big models can be fine-tuned on one GPU |
+# | A labelled dataset | **Prompting** and **retrieval-augmented generation (RAG)**: give an LLM your own documents at question time |
+# | Classifiers (photo in, label out) | **Generative models** that create new images or text: **GANs**, where a generator and a judge compete (formula ③ below), and **diffusion models**, which learn to remove noise step by step |
 # | ResNet / ViT | **Multimodal** models that read images and text together (vision-language models) |
+#
+# **① Language-model loss:** the same cross-entropy as in 2.7, applied to every next word piece:
+#
+# $$L = -\sum_{t} \log p\left(x_t \mid x_{\lt t}\right)$$
+#
+# $x_t$ is the word piece at position $t$, and $x_{\lt t}$ is everything before it. **Example:** for "I'd like a
+# glass of orange ___", if the model gives "juice" a probability of 0.4 the cost is $-\log 0.4 = 0.92$; at 0.9
+# it drops to 0.11.
+#
+# **② LoRA:** keep the big grid of numbers $W$ frozen and learn two thin grids $B$ and $A$:
+#
+# $$W' = W + BA \qquad (B: d \times r, \quad A: r \times d, \quad r \ll d)$$
+#
+# **Example:** with $d = 4{,}096$ and rank $r = 8$, $W$ has 16.8 million numbers, but $B$ and $A$ together have
+# only $2 \times 4{,}096 \times 8 = 65{,}536$, about 0.4%.
+#
+# **③ GANs:** the generator $G$ turns random noise $z$ into a fake; the judge $D$ (the discriminator) scores how
+# real something looks. They play a game:
+#
+# $$\min_G \, \max_D \;\; \mathbb{E}\left[\log D(x)\right] + \mathbb{E}\left[\log\left(1 - D(G(z))\right)\right]$$
+#
+# $D$ tries to score real photos $x$ high and fakes $G(z)$ low; $G$ tries to fool it. $\mathbb{E}$ means
+# "the average over many examples".
 #
 # **What to learn next:** the PyTorch tutorials, the Hugging Face course (free), *Dive into Deep
 # Learning* (d2l.ai, free), fast.ai, and — most of all — **build a project with data you care about.**
@@ -1096,7 +1299,7 @@ for k, v in RESULTS.items():
 
 # %% [markdown]
 # ## 🎉 What you built today
-# - The **PyTorch mental model**: tensors, autograd (checked against hand-derived gradients), `nn.Module`, the 5-step loop
+# - **How a model learns**: tensors, autograd (checked against hand-derived gradients), `nn.Module`, the 5-step loop
 # - A **leaf-disease classifier** via transfer learning: frozen backbone → new head → fine-tuning, with augmentation
 # - A **customer-intent router** with a fine-tuned Transformer — the same recipe on text
 # - **Engineering judgement:** learning rate, batch size vs memory, overfitting, freeze vs fine-tune
@@ -1107,7 +1310,7 @@ for k, v in RESULTS.items():
 
 # %% [markdown]
 # ---
-# ## Appendix — data, models and references
+# ## Appendix: where the data and models come from
 # **Datasets**
 # | Dataset | Licence | Link | How this notebook gets it |
 # |---|---|---|---|

@@ -25,6 +25,30 @@ NOTE = ("> 🧑‍🏫 **Instructor copy.** Executed top to bottom on a free Goo
         "public phone-demo link) are removed — run those cells yourself to see them live.\n\n")
 DROP_MIME = {"application/vnd.jupyter.widget-view+json", "application/javascript"}
 LINK = re.compile(r"https://[a-z0-9]+\.gradio\.live\S*")
+# Printed labels renamed in the code since the dry run (old text -> current text)
+RENAMED = {"📋 LEADERBOARD ENTRY": "📋 YOUR RESULT",
+           "1. Framing": "1. Why deep learning",
+           "2. PyTorch mental model": "2. How a model learns",
+           "3. Vision transfer learning": "3. Project 1: leaf disease",
+           "4. NLP fine-tuning": "4. Project 2: customer messages",
+           "5. Pitfalls & MLOps": "5. When training goes wrong",
+}
+
+
+def realign_table(text: str) -> str:
+    """Re-pad "name | value" rows after renaming, so the timing table stays aligned."""
+    lines = text.splitlines(keepends=True)
+    rows = [i for i, l in enumerate(lines) if " | " in l and l.count("|") == 1]
+    if len(rows) < 2:
+        return text
+    width = max(len(lines[i].split("|")[0].rstrip()) for i in rows)
+    for i in rows:
+        left, right = lines[i].split("|")
+        lines[i] = f"{left.rstrip().ljust(width)} |{right}"
+    for i, l in enumerate(lines):                      # separator lines follow the new width
+        if l.strip() and set(l.strip()) == {"-"}:
+            lines[i] = "-" * (width + 10) + ("\n" if l.endswith("\n") else "")
+    return "".join(lines)
 # Files that are never published (listed in the private repository's .public-exclude). The dry run was
 # executed on that branch, so its folder listing (section 5.6) names them; those lines are dropped.
 PRIVATE_LIST = ROOT / ".public-exclude"
@@ -59,7 +83,9 @@ def clean_outputs(cell: dict) -> list:
             o["metadata"] = {}
         if "text" in o:
             t = "".join(o["text"]) if isinstance(o["text"], list) else o["text"]
-            o["text"] = hide_private_names(LINK.sub("<expired demo link>", t))
+            for old, new in RENAMED.items():
+                t = t.replace(old, new)
+            o["text"] = realign_table(hide_private_names(LINK.sub("<expired demo link>", t)))
         out.append(o)
     return out
 

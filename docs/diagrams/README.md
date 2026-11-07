@@ -13,7 +13,7 @@ VS Code extension *Draw.io Integration* (hediet.vscode-drawio). Each page is als
 | 5 | Model architecture | `05_model_architecture.png` | ResNet-50 and DistilBERT: frozen vs fine-tuned vs new head, thresholds |
 | 6 | Security & responsible AI | `06_security.png` | 9 risks → controls → where they live in the code |
 | 7 | Environment decision | `07_environment_decision.png` | Colab → Kaggle → local GPU → CPU FAST mode |
-| 8 | Lecture flow | `08_lecture_flow.png` | the 4:00–6:30 PM timeline mapped to notebook sections and concepts |
+| 8 | Lecture flow | `08_lecture_flow.png` | the 4:00–5:30 PM timeline (80 min hands-on + 10 min Q&A) mapped to notebook sections and concepts |
 | 9 | Git & release flow | `09_git_release_flow.png` | private work → public release branch → PR → main, the data-v1 release, safety guards |
 
 **Colour key (same on every page):** purple = people · yellow = runtime / decision · blue = code / frozen
