@@ -317,17 +317,17 @@ def environment() -> Diagram:
 
 # ---------------------------------------------------------------- 8. lecture flow
 def lecture_flow() -> Diagram:
-    segs = [("4:00", "Setup", "§0 · 5 min", "Open the Colab link · select T4 · run the setup cells (downloads while we talk)"),
-            ("4:05", "Why deep learning", "§1 · 10 min", "Feature engineering vs feature learning · GPUs and FLOPs · the modern stack"),
-            ("4:15", "PyTorch mental model", "§2 · 20 min", "Tensors · gradient descent by hand · autograd · nn.Module · the 5-line loop"),
-            ("4:35", "LEAF-101: vision", "§3 · 40 min", "Transfer learning · augmentation · 5-min challenge · fine-tuning · out-of-memory · metrics · stress test · threshold τ"),
-            ("5:15", "SUPPORT-202: NLP", "§4 · 20 min", "Tokenisation · attention · frozen vs fine-tuned DistilBERT · macro-F1 · routing"),
-            ("5:35", "Pitfalls & MLOps", "§5 · 20 min", "Overfit one batch · NaN · vanishing gradients · tracking · safetensors · tests · phone demo"),
-            ("5:55", "Horizons", "§6 · 5 min", "LLMs · LoRA · RAG · GANs · diffusion"),
-            ("6:00", "Q&A", "30 min", "Careers and research questions")]
+    segs = [("4:00", "Setup", "§0 · 5 min", "Open the notebook from the QR code · turn on the T4 GPU · run the 3 setup cells (they download while we talk)"),
+            ("4:05", "Why deep learning", "§1 · 5 min", "Computers learn what to look for: hand-made features 70.7% vs a pretrained model 88.7% · why a GPU (28× faster)"),
+            ("4:10", "How a model learns", "§2 · 12 min", "Small steps downhill, by hand · PyTorch does the calculus · how big each step should be · the five-line training loop"),
+            ("4:22", "Project 1: leaf disease", "§3 · 28 min", "Look at the data · the score to beat · reuse ResNet · more photos for free · 3-min challenge · fine-tuning · test set 90.6% · unsure → ask a human"),
+            ("4:50", "Project 2: messages", "§4 · 13 min", "Word pieces · attention · last layer or whole model · test set 92.1% · unsure messages go to a person"),
+            ("5:03", "When training goes wrong", "§5 · 12 min", "Learn 16 examples by heart · numbers blow up (NaN) or fade away · ship it: a web app on your phone · share a model safely"),
+            ("5:15", "Wrap-up", "§6 · 5 min", "What you built today · where this leads: LLMs, LoRA, RAG · take-home projects"),
+            ("5:20", "Q&A", "10 min", "Careers, research, anything from today · hard stop at 5:30")]
     d = Diagram("08_lecture_flow", "8 · Lecture flow", 1500, 620)
-    d.title("Lecture flow · Thursday, November 19, 2026 · 4:00–6:30 PM",
-            "Two hours hands-on + 30 minutes Q&A; each block maps to a notebook section")
+    d.title("Lecture flow · Thursday, November 19, 2026 · 4:00–5:30 PM",
+            "80 minutes hands-on + 10 minutes Q&A; each block maps to a notebook section")
     x0, w, gap = 40, 160, 20
     for i, (t, title, sub, concepts) in enumerate(segs):
         x = x0 + i * (w + gap)
@@ -338,8 +338,8 @@ def lecture_flow() -> Diagram:
         d.edge(f"s{i}", f"c{i}", "", exit=("B", 0.5), entry=("T", 0.5), arrow=False, dashed=True)
         if i:
             d.edge(f"s{i - 1}", f"s{i}", "")
-    d.text(40, 548, 1420, 40, "Both tickets use the same recipe: pretrained backbone → new head → fine-tune. "
-           "Optional cells (marked as optional in the notebook) can be skipped if time runs short.", 13, color="#52514e")
+    d.text(40, 548, 1420, 40, "Both projects use the same recipe: pretrained model → new last layer → gentle fine-tuning. "
+           "Cells 3.9, 3.14, 5.4 and 5.6 are skipped in class (marked in the notebook); try them at home.", 13, color="#52514e")
     return d
 
 

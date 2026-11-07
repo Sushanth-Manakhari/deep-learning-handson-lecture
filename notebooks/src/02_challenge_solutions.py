@@ -7,7 +7,7 @@
 # ---
 
 # %% [markdown]
-# # 🎛️ Challenge solutions + take-home extensions
+# # 🎛️ Challenge answers and take-home projects
 # **Deep Learning, Hands-On · The Roux Institute at Northeastern University**
 #
 # Part A re-runs the in-class challenge as a small **hyperparameter sweep** and explains every result.
@@ -58,7 +58,7 @@ device = get_device()
 S = vision_state(device)
 
 # %% [markdown]
-# ## Part A — the challenge as a sweep
+# ## Part A: what each challenge setting does
 # Each row changes **one** knob from the baseline (lr 1e-3, batch 32, AdamW, augmentation on), so the
 # effect is attributable to that knob — the core habit of good experimentation.
 
@@ -96,11 +96,11 @@ results
 # ### What each result teaches
 # | Run | Typical outcome | Engineering lesson |
 # |---|---|---|
-# | **lr = 1.0** | accuracy jumps around or collapses; may diverge | Step size exceeds the stable range ($\eta > 2/\lambda_{\max}$). First suspect when the loss explodes. |
+# | **lr = 1.0** | accuracy jumps around or collapses; may diverge | The step size is above the safe limit (lecture cell 2.4: two over lambda max). First suspect when the loss explodes. |
 # | **lr = 1e-5** | barely better than chance after a few epochs | Too-small steps waste compute; use an LR finder or warm-up + decay. |
 # | **batch 4** | slow epochs, noisy curve | Small batches underuse the GPU (many tiny kernel launches) and give noisy gradients — though the noise can act as a regulariser. |
 # | **batch 128** | fast epochs, fewer updates per epoch → may need more epochs or a larger LR | Memory grows linearly with batch size; the *linear scaling rule* (scale LR with batch size) is a common starting point. |
-# | **SGD, same lr** | slower than AdamW at 1e-3 | Adam adapts a per-parameter step ($\hat m/\sqrt{\hat v}$); plain SGD needs its own LR tuning (try 1e-2). |
+# | **SGD, same lr** | slower than AdamW at 1e-3 | Adam gives every number its own step size, based on running averages of its slopes; plain SGD needs its own LR tuning (try 1e-2). |
 # | **no augmentation** | higher train accuracy, similar or lower validation | Classic overfitting: the train/validation gap widens. |
 # | **label smoothing** | similar accuracy, lower confidence | Better-calibrated probabilities — useful when you threshold on confidence. |
 
@@ -109,9 +109,9 @@ viz.plot_bar(dict(zip(results["run"], results["best val acc"])), "Best validatio
              ylabel="accuracy", horizontal=True)
 
 # %% [markdown]
-# ## Part B — take-home extensions (same recipe, new domains)
+# ## Part B: take-home projects (same recipe, new problems)
 #
-# ### B1. Health sciences: pneumonia from chest X-rays (MedMNIST)
+# ### B1. Health: spot pneumonia in chest X-rays (MedMNIST)
 # ```python
 # # pip install medmnist          (dataset: MedMNIST v2, CC BY 4.0; 5,856 pediatric chest X-rays)
 # from medmnist import PneumoniaMNIST
@@ -123,7 +123,7 @@ viz.plot_bar(dict(zip(results["run"], results["best val acc"])), "Best validatio
 # Things to think about: **class imbalance** (report recall/sensitivity, not just accuracy), the cost of a
 # false negative vs a false positive, and that a research model is **not a medical device**.
 #
-# ### B2. Cybersecurity: SMS spam / phishing detection
+# ### B2. Security: catch spam and phishing texts
 # ```python
 # # SMS Spam Collection (UCI, CC BY 4.0): 5,574 messages, ~13% spam → imbalanced
 # from datasets import load_dataset

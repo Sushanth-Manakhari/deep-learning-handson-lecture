@@ -2,7 +2,7 @@
 
 **Deep Learning, Hands-On: from tensors to a shipped model**
 Guest lecture by Dr. Sushanth Manakhari · hosted by Dr. Umesh Hodeghatta Rao
-The Roux Institute at Northeastern University, Portland, Maine · **Thursday, November 19, 2026, 4:00–6:30 PM**
+The Roux Institute at Northeastern University, Portland, Maine · **Thursday, November 19, 2026, 4:00–5:30 PM** (80 minutes hands-on + 10 minutes of questions)
 
 We will train two real models in class — a **leaf-disease detector** (images) and a **customer-message
 router** (text) — break them on purpose, debug them, and open the result on your phone.
@@ -105,12 +105,12 @@ If you'd like a refresher:
 
 ## E. On the day
 
-- **Laptop, fully charged, plus charger.** Training uses the cloud GPU, but the browser stays busy for two hours.
+- **Laptop, fully charged, plus charger.** Training uses the cloud GPU, but the browser stays busy for the whole 90 minutes.
 - **Campus Wi-Fi login** working before 4:00 PM.
 - **Your phone**, and — fun bonus — **take a photo of any plant leaf before you come** (a house plant,
-  a tree, a salad leaf). At the end you'll upload it from your phone's gallery to the model you trained.
-- The lecture notebook link is on the first slide (QR code). We start the setup cell in the first 5 minutes,
-  so it downloads data while we talk.
+  a tree, a salad leaf). Near the end you'll upload it from your phone's gallery to the model you trained.
+- **Arrive by 3:55 if you can.** The lecture notebook link is on the first slide (QR code). We run the three
+  setup cells in the first 5 minutes, so data downloads while we talk.
 - Lost or got an error? Every section starts with a 🛟 **catch-up cell** — run it and you're back in sync.
   Setup completely broken? Pair up with a neighbour; it's encouraged.
 
